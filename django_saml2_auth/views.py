@@ -154,10 +154,9 @@ def acs(r):
     user_name = user_identity[settings.SAML2_AUTH.get('ATTRIBUTES_MAP', {}).get('username', 'UserName')][0]
 
     target_user = None
-    is_new_user = False
 
     try:
-        target_user = User.objects.get(email=user_name)
+        target_user = User.objects.get(email=user_name, is_active=True)
         if settings.SAML2_AUTH.get('TRIGGER', {}).get('BEFORE_LOGIN', None):
             import_string(settings.SAML2_AUTH['TRIGGER']['BEFORE_LOGIN'])(user_identity)
     except User.DoesNotExist:
@@ -165,19 +164,9 @@ def acs(r):
 
     r.session.flush()
 
-    if target_user.is_active:
-        target_user.backend = 'email-auth.EmailBackend'
-        login(r, target_user)
-    else:
-        return HttpResponseRedirect(get_reverse([denied, 'denied', 'django_saml2_auth:denied']))
-
-    if is_new_user:
-        try:
-            return render(r, 'django_saml2_auth/welcome.html', {'user': r.user})
-        except TemplateDoesNotExist:
-            return HttpResponseRedirect(next_url)
-    else:
-        return HttpResponseRedirect(next_url)
+    target_user.backend = 'email-auth.EmailBackend'
+    login(r, target_user)
+    return HttpResponseRedirect(next_url)
 
 
 def signin(r):
